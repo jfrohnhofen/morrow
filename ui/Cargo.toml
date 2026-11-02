@@ -1,0 +1,13 @@
+[package]
+name = "morrow-ui"
+description = "Page rendering and form parsing for the morrow web UI, free of hardware dependencies"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[features]
+default = []
+# Pulls in std so the dev server can render into a String and print backtraces.
+std = []

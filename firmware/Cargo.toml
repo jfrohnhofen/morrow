@@ -1,0 +1,42 @@
+[package]
+name = "morrow"
+version = "0.1.0"
+edition = "2021"
+description = "Sunrise alarm firmware for the Raspberry Pi Pico W"
+license = "MIT"
+
+[dependencies]
+embassy-executor = { version = "0.10", features = ["platform-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
+# boot2-none: the bootloader owns the second stage. Without this the image
+# would carry its own copy at 0x10000000 and overwrite the bootloader.
+embassy-rp       = { version = "0.10", features = ["rp2040", "time-driver", "critical-section-impl", "defmt", "unstable-pac", "boot2-none"] }
+embassy-time     = { version = "0.5", features = ["defmt", "defmt-timestamp-uptime"] }
+embassy-sync     = { version = "0.8", features = ["defmt"] }
+embassy-futures  = "0.1"
+embassy-net      = { version = "0.9", features = ["tcp", "udp", "dhcpv4", "dhcpv4-hostname", "dns", "medium-ethernet", "proto-ipv4", "multicast", "defmt"] }
+
+cyw43     = { version = "0.7", features = ["defmt", "firmware-logs"] }
+cyw43-pio = { version = "0.10", features = ["defmt"] }
+
+embassy-boot-rp  = { version = "0.10", features = ["defmt"] }
+embedded-storage = "0.3"
+
+cortex-m    = { version = "0.7", features = ["inline-asm"] }
+cortex-m-rt = "0.7"
+
+defmt       = "1"
+defmt-rtt   = "1"
+panic-probe = { version = "1", features = ["print-defmt"] }
+
+static_cell      = "2"
+heapless         = { version = "0.9", features = ["defmt"] }
+portable-atomic  = { version = "1", features = ["critical-section"] }
+rand_core        = "0.10"
+embedded-io-async = "0.7"
+embedded-hal     = "1"
+smart-leds       = "0.4"
+morrow-ui        = { path = "../ui" }
+
+[build-dependencies]
+qrcodegen = "1.8"
+

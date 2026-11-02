@@ -1,0 +1,21 @@
+[package]
+name = "morrow-bootloader"
+description = "A/B bootloader for morrow, with watchdog-backed rollback"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# boot2-w25q080 is stated rather than left to the default: this image is the one
+# that carries the second stage, and the Pico W's flash is a W25Q-compatible part.
+embassy-rp      = { version = "0.10", features = ["rp2040", "time-driver", "critical-section-impl", "defmt", "boot2-w25q080"] }
+embassy-boot-rp = { version = "0.10", features = ["defmt"] }
+embassy-sync    = { version = "0.8", features = ["defmt"] }
+embassy-time    = { version = "0.5", features = ["defmt"] }
+
+cortex-m    = { version = "0.7", features = ["inline-asm"] }
+cortex-m-rt = "0.7"
+defmt       = "1"
+defmt-rtt   = "1"
+
+[build-dependencies]

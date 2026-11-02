@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["firmware", "bootloader", "ui", "devserver"]
+
+default-members = ["firmware"]
+
+[profile.release]
+debug = 2
+lto = "fat"
+opt-level = "s"
+codegen-units = 1
+incremental = false
+overflow-checks = false
+
+[profile.dev]
+opt-level = 1
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"

@@ -1,0 +1,9 @@
+[package]
+name = "morrow-devserver"
+description = "Serves the morrow web UI on the host against mock state, so the pages can be developed without flashing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+morrow-ui = { path = "../ui", features = ["std"] }
