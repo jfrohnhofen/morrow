@@ -434,11 +434,17 @@ async fn ntp_task(stack: Stack<'static>) -> ! {
                 let first = state::with(|a| {
                     let first = !a.clock.is_valid();
                     a.clock.set(unix);
+                    if first {
+                        a.system_mode = state::SystemMode::Operational;
+                        if a.ui == state::UiState::Setup {
+                            a.ui = state::UiState::Clock;
+                        }
+                    }
                     a.display_dirty = true;
                     first
                 });
                 if first {
-                    defmt::info!("ntp: clock set");
+                    defmt::info!("ntp: clock set, entering operational mode");
                 }
                 Timer::after(NTP_INTERVAL).await;
             }

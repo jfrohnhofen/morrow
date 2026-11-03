@@ -15,7 +15,7 @@ use embassy_time::{Duration, Instant};
 
 use crate::leds::FULL;
 use crate::settings::Settings;
-use crate::state::{Alarm, App, UiState};
+use crate::state::{Alarm, App, SystemMode, UiState};
 use crate::tz;
 
 /// How often [`tick`] should be called.
@@ -27,6 +27,13 @@ pub const TICK: Duration = Duration::from_millis(100);
 
 /// Advances the alarm: checks whether to start, and drives the ramp.
 pub fn tick(app: &mut App) {
+    if app.system_mode == SystemMode::Setup {
+        if app.alarm != Alarm::Idle {
+            finish(app);
+        }
+        return;
+    }
+
     let Some(utc) = app.clock.now() else {
         // No clock yet, so no idea whether it is time. Coast.
         return;

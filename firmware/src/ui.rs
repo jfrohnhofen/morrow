@@ -20,7 +20,7 @@ use crate::dial::Event;
 use crate::display::{Display, PH, PW};
 use crate::leds::{FULL, MANUAL_STEP};
 use crate::settings::Mode;
-use crate::state::{Alarm, App, NetMode, UiState};
+use crate::state::{Alarm, App, NetMode, SystemMode, UiState};
 
 use crate::generated::qr::{SETUP_QR, SETUP_QR_SIZE, SETUP_QR_STRIDE, SETUP_SSID};
 
@@ -54,9 +54,53 @@ pub fn handle(app: &mut App, event: Event) {
         return;
     }
 
-    // Provisioning owns the screen, but the lamp still works as a lamp.
-    if app.ui == UiState::Setup {
+    // Long-press detection on the button: 3 seconds toggles setup mode.
+    if event == Event::Press {
+        app.press_start = Some(embassy_time::Instant::now());
+    }
+
+    let is_long_press = if event == Event::Release {
+        app.press_start
+            .take()
+            .is_some_and(|t| t.elapsed() >= Duration::from_secs(3))
+    } else {
+        false
+    };
+
+    if is_long_press {
+        if app.system_mode == SystemMode::Setup {
+            if app.clock.is_valid() {
+                defmt::info!("ui: long press, entering operational mode");
+                app.system_mode = SystemMode::Operational;
+                app.reprovision = false;
+                app.net.mode = NetMode::Connecting;
+                app.ui = UiState::Clock;
+                app.display_dirty = true;
+            } else {
+                defmt::warn!("ui: cannot enter operational mode without valid local time");
+            }
+        } else {
+            defmt::info!("ui: long press, entering setup mode");
+            app.system_mode = SystemMode::Setup;
+            app.reprovision = true;
+            if app.alarm != Alarm::Idle {
+                app.alarm = Alarm::Idle;
+                app.lamp_target = 0;
+            }
+            app.ui = UiState::Setup;
+            app.display_dirty = true;
+        }
+        return;
+    }
+
+    // In setup mode, the QR code shows on button press and other menu functions
+    // (like setting the alarm) are disabled. The lamp dial still works.
+    if app.system_mode == SystemMode::Setup {
         match event {
+            Event::Release => {
+                app.ui = UiState::Setup;
+                app.display_dirty = true;
+            }
             Event::Left => nudge(app, -(MANUAL_STEP as i32)),
             Event::Right => nudge(app, MANUAL_STEP as i32),
             _ => {}
@@ -64,6 +108,7 @@ pub fn handle(app: &mut App, event: Event) {
         return;
     }
 
+    // Operational mode: clock and alarm editing menu navigation.
     match (app.ui, event) {
         (UiState::Idle, Event::Release) => app.ui = UiState::Clock,
         (UiState::Idle, Event::Left) => nudge(app, -(MANUAL_STEP as i32)),
@@ -109,7 +154,7 @@ pub fn timeout(app: &mut App) {
             app.settings_dirty = true;
             app.display_dirty = true;
         }
-        UiState::Clock => {
+        UiState::Clock | UiState::Setup => {
             app.ui = UiState::Idle;
             app.display_dirty = true;
         }
@@ -259,17 +304,18 @@ fn render_setup(display: &mut Display, app: &App) {
     }
 }
 
-/// Forces the screen to match the network state.
+/// Drops the screen back to sleep if provisioning finishes.
 ///
-/// Provisioning takes over the panel, and leaving it drops back to the sleeping
-/// clock rather than stranding the UI on a stale screen.
+/// Does not wake the panel when entering setup mode: the QR code only shows
+/// on button press.
 pub fn sync_with_net(app: &mut App) {
-    let setup = app.net.mode == NetMode::Setup;
-    if setup && app.ui != UiState::Setup {
-        app.ui = UiState::Setup;
-        app.display_dirty = true;
-    } else if !setup && app.ui == UiState::Setup {
-        app.ui = UiState::Idle;
-        app.display_dirty = true;
+    if app.net.mode != app.net.prev_mode {
+        let left_setup = app.net.prev_mode == NetMode::Setup;
+        app.net.prev_mode = app.net.mode;
+
+        if left_setup && app.ui == UiState::Setup {
+            app.ui = UiState::Idle;
+            app.display_dirty = true;
+        }
     }
 }

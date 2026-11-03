@@ -245,17 +245,17 @@ async fn run_station(
 /// Records a failed attempt and decides whether to fall back to provisioning.
 async fn fail(stack: Stack<'static>, ssid: Text<32>) {
     stack.set_config_v4(ConfigV4::None);
-    let failures = state::with(|a| {
+    let (failures, from_portal) = state::with(|a| {
         a.net.join_failures += 1;
         a.net.mode = NetMode::Connecting;
         a.net.addr = None;
         a.net.rssi = None;
-        a.net.join_failures
+        (a.net.join_failures, a.net.from_portal)
     });
 
-    if failures >= MAX_JOIN_FAILURES {
+    if from_portal && failures >= MAX_JOIN_FAILURES {
         defmt::warn!(
-            "wifi: {} failed attempts, falling back to setup mode",
+            "wifi: {} failed attempts after setup portal, falling back to setup mode",
             failures
         );
         // Credentials are kept: the access point shows them pre-filled so only
@@ -263,12 +263,17 @@ async fn fail(stack: Stack<'static>, ssid: Text<32>) {
         // itself still leaves the device configured.
         state::with(|a| {
             a.reprovision = true;
-            if a.net.from_portal {
-                a.net.last_join_error = Some(ssid);
-                a.net.from_portal = false;
-            }
+            a.net.last_join_error = Some(ssid);
+            a.net.from_portal = false;
         });
     } else {
-        Timer::after(RETRY_DELAY).await;
+        // When not coming from fresh portal submission (e.g. daily router power-off):
+        // do not fall back to AP mode! Stay in station mode and retry quietly.
+        let delay = if failures > MAX_JOIN_FAILURES {
+            Duration::from_secs(15)
+        } else {
+            RETRY_DELAY
+        };
+        Timer::after(delay).await;
     }
 }

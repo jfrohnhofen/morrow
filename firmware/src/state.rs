@@ -101,6 +101,16 @@ pub enum Alarm {
     Holding { until: Instant },
 }
 
+/// Overall operating mode of the system.
+#[derive(Copy, Clone, PartialEq, Eq, defmt::Format)]
+pub enum SystemMode {
+    /// Setup mode: alarm disabled, menu functions disabled, button shows QR code.
+    /// This is the only mode available when no local time is available.
+    Setup,
+    /// Operational mode: alarm active, clock and alarm menu enabled.
+    Operational,
+}
+
 /// What the network is doing.
 #[derive(Copy, Clone, PartialEq, Eq, defmt::Format)]
 pub enum NetMode {
@@ -143,6 +153,8 @@ pub struct Net {
     pub last_join_error: Option<Text<32>>,
     /// Whether the current join attempt originated from the setup portal.
     pub from_portal: bool,
+    /// Previous mode, for detecting transitions in sync_with_net.
+    pub prev_mode: NetMode,
 }
 
 impl Net {
@@ -155,6 +167,7 @@ impl Net {
             join_failures: 0,
             last_join_error: None,
             from_portal: false,
+            prev_mode: NetMode::Booting,
         }
     }
 }
@@ -169,6 +182,8 @@ pub struct App {
     pub settings: Settings,
     /// Wall clock.
     pub clock: Clock,
+    /// Overall system mode (Setup or Operational).
+    pub system_mode: SystemMode,
     /// Current screen.
     pub ui: UiState,
     /// Sunrise progress.
@@ -191,6 +206,8 @@ pub struct App {
     pub last_fire_minute: Option<i64>,
     /// When the dial was last touched, for the inactivity timeout.
     pub last_input: Option<Instant>,
+    /// When the dial button was pressed down, for long-press detection.
+    pub press_start: Option<Instant>,
     /// Incremented by the display task on every pass.
     ///
     /// The watchdog task feeds only when this moves, so a wedged UI loop
@@ -206,6 +223,7 @@ impl App {
                 offset: None,
                 last_sync: None,
             },
+            system_mode: SystemMode::Setup,
             ui: UiState::Idle,
             alarm: Alarm::Idle,
             net: Net::new(),
@@ -217,6 +235,7 @@ impl App {
             rescan: false,
             last_fire_minute: None,
             last_input: None,
+            press_start: None,
             ui_heartbeat: 0,
         }
     }

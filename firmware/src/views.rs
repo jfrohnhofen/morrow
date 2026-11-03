@@ -44,11 +44,12 @@ pub fn render_status<const N: usize>(out: &mut String<N>) -> core::fmt::Result {
             a.clock,
             a.net,
             a.alarm,
+            a.system_mode,
             a.lamp_current,
             a.lamp_target,
         )
     });
-    let (settings, clock, net, alarm_phase, lamp_current, lamp_target) = snap;
+    let (settings, clock, net, alarm_phase, system_mode, lamp_current, lamp_target) = snap;
 
     // Asking the bootloader costs a flash read, so only do it when the page is
     // actually being rendered — and skip it if the flash is busy, since a
@@ -71,10 +72,14 @@ pub fn render_status<const N: usize>(out: &mut String<N>) -> core::fmt::Result {
         None => (tz::Abbr::default(), 0),
     };
 
-    let alarm_state = match alarm_phase {
-        Alarm::Idle => "idle",
-        Alarm::Rising { .. } => "rising",
-        Alarm::Holding { .. } => "holding",
+    let alarm_state = if system_mode == state::SystemMode::Setup {
+        "disabled (setup mode)"
+    } else {
+        match alarm_phase {
+            Alarm::Idle => "idle",
+            Alarm::Rising { .. } => "rising",
+            Alarm::Holding { .. } => "holding",
+        }
     };
 
     // Report the target, not the slew-limited current value: it is what the
@@ -111,9 +116,13 @@ pub fn render_status<const N: usize>(out: &mut String<N>) -> core::fmt::Result {
             sunrise_secs: settings.sunrise_secs,
             hold_secs: settings.hold_secs,
             state: alarm_state,
-            next: now_utc
-                .and_then(|u| alarm::next_occurrence(u, &settings))
-                .map(|u| at(u, &rule)),
+            next: if system_mode == state::SystemMode::Setup {
+                None
+            } else {
+                now_utc
+                    .and_then(|u| alarm::next_occurrence(u, &settings))
+                    .map(|u| at(u, &rule))
+            },
             led_count: settings.led_count,
         },
         lamp_pct: pct,
